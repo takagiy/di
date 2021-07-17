@@ -1,2 +1,2 @@
 # di
-Terminal based text editor just for a exercise
+Terminal based text editor just for an exercise
