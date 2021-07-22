@@ -58,24 +58,26 @@ impl PieceTable {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = char> + '_ {
-        Iter {
-            table: unsafe { NonNull::new_unchecked(self as *const PieceTable as *mut PieceTable) },
-            pieces: self.pieces.iter(),
-        }
-        .flat_map(|s| s.chars())
-    }
-
     pub fn cursor(&mut self) -> Cursor {
         Cursor {
-            table: unsafe { NonNull::new_unchecked(self as *const PieceTable as *mut PieceTable) },
-            cursor: self.pieces.cursor_front_mut(),
-            cursor_index: 0
+            table: unsafe { NonNull::new_unchecked(self as *mut PieceTable) },
+            cursor: unsafe { NonNull::new_unchecked(self as *mut PieceTable).as_mut() }
+                .pieces
+                .cursor_front_mut(),
+            cursor_index: 0,
         }
     }
 }
 
 impl Cursor<'_> {
+    pub fn iter(&self) -> impl Iterator<Item = char> + '_ {
+        Iter {
+            table: self.table,
+            pieces: unsafe { self.table.as_ref() }.pieces.iter(),
+        }
+        .flat_map(|s| s.chars())
+    }
+
     pub fn insert(&mut self, x: &str) {
         let inserted_len = x.len();
         let begin = unsafe { self.table.as_ref() }.buf_add.len();
@@ -97,32 +99,30 @@ impl Cursor<'_> {
             Some(p) => {
                 if p.end - p.begin == self.cursor_index {
                     if let Some(_) = self.cursor.peek_next() {
-                    self.cursor.move_next();
-                    self.cursor_index = 0;
+                        self.cursor.move_next();
+                        self.cursor_index = 0;
                     }
-                }
-                else {
+                } else {
                     self.cursor_index += 1;
                 }
             }
-            None => ()
+            None => (),
         }
     }
 
     pub fn move_prev(&mut self) {
         match self.cursor.current() {
             Some(_) => {
-                if self.cursor_index == 0{
+                if self.cursor_index == 0 {
                     if let Some(prev) = self.cursor.peek_prev() {
-                    self.cursor_index = prev.end - prev.begin;
-                    self.cursor.move_prev();
+                        self.cursor_index = prev.end - prev.begin;
+                        self.cursor.move_prev();
                     }
-                }
-                else {
+                } else {
                     self.cursor_index -= 1;
                 }
             }
-            None => ()
+            None => (),
         }
     }
 

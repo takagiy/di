@@ -1,10 +1,12 @@
 use std::{
     fmt::Display,
-    io::{stdout, Stdout, Write},
+    io::{stdin, stdout, Stdout, Write},
 };
 
 use termion::{
     clear, cursor,
+    event::Key,
+    input::TermRead,
     raw::{IntoRawMode, RawTerminal},
     screen::AlternateScreen,
 };
@@ -45,32 +47,29 @@ impl App {
     }
 
     pub fn run(&mut self) {
-        {
         let mut cursor = self.buffer.cursor();
-        cursor.insert("hello");
-        cursor.insert(", world!");
-        cursor.move_prev();
-        cursor.move_prev();
-        cursor.insert("XXXXXXXX");
+        for event in stdin().keys() {
+            use Key::*;
+            match event.unwrap() {
+                Ctrl('c') => break,
+                Left => cursor.move_prev(),
+                Right => cursor.move_next(),
+                Char(c) => {
+                    let mut buf = [0u8; 4];
+                    cursor.insert(c.encode_utf8(&mut buf));
+                }
+                _ => (),
+            }
+            Self::draw(&mut self.stdout, cursor.iter());
         }
-        {
-        let mut cursor = self.buffer.cursor();
-        cursor.move_next();
-        cursor.move_next();
-        cursor.move_next();
-        cursor.move_next();
-        cursor.insert("hello");
-        cursor.insert(", world!");
-        }
-        self.draw();
     }
 
-    fn draw(&mut self) {
-        self.stdout.defer(clear::All);
-        self.stdout.defer(cursor::Goto(1, 1));
-        for c in self.buffer.iter() {
-            self.stdout.defer(c);
+    fn draw(stdout: &mut StdoutExt, chars: impl Iterator<Item = char>) {
+        stdout.defer(clear::All);
+        stdout.defer(cursor::Goto(1, 1));
+        for c in chars {
+            stdout.defer(c);
         }
-        self.stdout.flush();
+        stdout.flush();
     }
 }
