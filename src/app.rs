@@ -65,10 +65,15 @@ impl App {
     }
 
     fn draw(stdout: &mut StdoutExt, chars: impl Iterator<Item = char>) {
+        let mut ln = 1;
         stdout.defer(clear::All);
         stdout.defer(cursor::Goto(1, 1));
         for c in chars {
             stdout.defer(c);
+            if c == '\n' {
+                stdout.defer(cursor::Goto(1, ln));
+                ln += 1;
+            }
         }
         stdout.flush();
     }
