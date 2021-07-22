@@ -54,27 +54,33 @@ impl App {
                 Ctrl('c') => break,
                 Left => cursor.move_prev(),
                 Right => cursor.move_next(),
-                Char(c) => {
-                    let mut buf = [0u8; 4];
-                    cursor.insert(c.encode_utf8(&mut buf));
-                }
+                Char(c) => cursor.insert(c),
                 _ => (),
             }
-            Self::draw(&mut self.stdout, cursor.iter());
+            Self::draw(&mut self.stdout, cursor.iter(), &cursor, cursor.x, cursor.y);
         }
     }
 
-    fn draw(stdout: &mut StdoutExt, chars: impl Iterator<Item = char>) {
+    fn draw(
+        stdout: &mut StdoutExt,
+        chars: impl Iterator<Item = char>,
+        c: &buffer::Cursor,
+        cur_x: usize,
+        cur_y: usize,
+    ) {
         let mut ln = 1;
         stdout.defer(clear::All);
         stdout.defer(cursor::Goto(1, 1));
         for c in chars {
             stdout.defer(c);
             if c == '\n' {
-                stdout.defer(cursor::Goto(1, ln));
                 ln += 1;
+                stdout.defer(cursor::Goto(1, ln));
             }
         }
+        stdout.defer(cursor::Goto(1, 30));
+        write!(stdout.0, "{:?}", c);
+        stdout.defer(cursor::Goto(cur_x as u16 + 1, cur_y as u16 + 1));
         stdout.flush();
     }
 }

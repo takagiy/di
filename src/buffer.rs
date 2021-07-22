@@ -1,5 +1,4 @@
 use std::{
-    borrow::{Borrow, BorrowMut},
     collections::{
         linked_list::{self, CursorMut},
         LinkedList,
@@ -13,19 +12,23 @@ pub struct PieceTable {
     pieces: LinkedList<Piece>,
 }
 
+#[derive(Debug)]
 pub struct Cursor<'a> {
     table: NonNull<PieceTable>,
     cursor: CursorMut<'a, Piece>,
     cursor_index: usize,
+    pub x: usize,
+    pub y: usize,
 }
 
+#[derive(Debug)]
 struct Piece {
     kind: Kind,
     begin: usize,
     end: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum Kind {
     Original,
     Add,
@@ -65,6 +68,8 @@ impl PieceTable {
                 .pieces
                 .cursor_front_mut(),
             cursor_index: 0,
+            x: 0,
+            y: 0,
         }
     }
 }
@@ -78,32 +83,46 @@ impl Cursor<'_> {
         .flat_map(|s| s.chars())
     }
 
-    pub fn insert(&mut self, x: &str) {
-        let inserted_len = x.len();
+    pub fn insert(&mut self, x: char) {
+        if x == '\n' {
+            self.x = 0;
+            self.y += 1;
+        } else if self.cursor.current().is_some() {
+            self.x += 1;
+        }
         let begin = unsafe { self.table.as_ref() }.buf_add.len();
-        unsafe { self.table.as_mut() }.buf_add.push_str(x);
-        let end = unsafe { self.table.as_ref() }.buf_add.len();
+        unsafe { self.table.as_mut() }.buf_add.push(x);
         let inserted = Piece {
             kind: Kind::Add,
             begin,
-            end,
+            end: begin + 1,
         };
         self.split_piece();
-        self.cursor.insert_after(inserted);
-        self.cursor.move_next();
-        self.cursor_index = inserted_len;
+        match self.cursor.current() {
+            Some(p) if p.end == inserted.begin => {
+                p.end = inserted.end;
+                self.cursor_index += 1;
+            }
+            _ => {
+                self.cursor.insert_after(inserted);
+                self.cursor.move_next();
+                self.cursor_index = 0;
+            }
+        }
     }
 
     pub fn move_next(&mut self) {
         match self.cursor.current() {
             Some(p) => {
-                if p.end - p.begin == self.cursor_index {
+                if p.end - p.begin - 1 == self.cursor_index {
                     if let Some(_) = self.cursor.peek_next() {
                         self.cursor.move_next();
                         self.cursor_index = 0;
+                        self.x += 1;
                     }
                 } else {
                     self.cursor_index += 1;
+                    self.x += 1;
                 }
             }
             None => (),
@@ -115,11 +134,13 @@ impl Cursor<'_> {
             Some(_) => {
                 if self.cursor_index == 0 {
                     if let Some(prev) = self.cursor.peek_prev() {
-                        self.cursor_index = prev.end - prev.begin;
+                        self.cursor_index = prev.end - prev.begin - 1;
                         self.cursor.move_prev();
+                        self.x -= 1;
                     }
                 } else {
                     self.cursor_index -= 1;
+                    self.x -= 1;
                 }
             }
             None => (),
@@ -128,15 +149,15 @@ impl Cursor<'_> {
 
     fn split_piece(&mut self) {
         match self.cursor.index() {
-            None => {}
+            None => (),
             Some(_) => {
                 let new = {
                     let p = self.cursor.current().unwrap();
-                    if p.end - p.begin == self.cursor_index {
+                    if p.end - p.begin - 1 == self.cursor_index {
                         return;
                     }
                     let end = p.end;
-                    p.end = p.begin + self.cursor_index;
+                    p.end = p.begin + self.cursor_index + 1;
                     Piece {
                         kind: p.kind,
                         begin: p.end,
