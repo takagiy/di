@@ -87,7 +87,7 @@ impl Cursor<'_> {
         if x == '\n' {
             self.x = 0;
             self.y += 1;
-        } else if self.cursor.current().is_some() {
+        } else {
             self.x += 1;
         }
         let begin = unsafe { self.table.as_ref() }.buf_add.len();
@@ -135,9 +135,9 @@ impl Cursor<'_> {
                 if self.cursor_index == 0 {
                     if let Some(prev) = self.cursor.peek_prev() {
                         self.cursor_index = prev.end - prev.begin - 1;
-                        self.cursor.move_prev();
-                        self.x -= 1;
                     }
+                    self.cursor.move_prev();
+                    self.x -= 1;
                 } else {
                     self.cursor_index -= 1;
                     self.x -= 1;
